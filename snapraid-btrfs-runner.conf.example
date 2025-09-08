@@ -55,6 +55,8 @@ password =
 [discord]
 enabled = false
 sendon = success,error
+; set to false to get full program output via discord
+short = true
 webhook_url =
 
 [scrub]

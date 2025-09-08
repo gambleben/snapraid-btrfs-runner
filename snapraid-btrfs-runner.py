@@ -169,7 +169,7 @@ def finish(is_success):
     if "discord" in config and config["discord"]["enabled"]:
         if ("error", "success")[is_success] in config["discord"]["sendon"]:
             try:
-                send_discord_notification(is_success, email_log.getvalue())
+                send_discord_notification(is_success, discord_log.getvalue())
             except Exception:
                 logging.exception("Failed to send Discord notification")
 
@@ -269,6 +269,16 @@ def setup_logger():
             # Don't send programm stdout in email
             email_logger.setLevel(logging.INFO)
         root_logger.addHandler(email_logger)
+
+    if config["discord"]["sendon"]:
+        global discord_log
+        disord_log = StringIO()
+        discord_logger = logging.StreamHandler(disord_log)
+        discord_logger.setFormatter(log_format)
+        if config["discord"]["short"]:
+            # Don't send programm stdout in discord message
+            discord_logger.setLevel(logging.INFO)
+        root_logger.addHandler(discord_logger)
 
 
 def main():
