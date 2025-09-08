@@ -272,8 +272,8 @@ def setup_logger():
 
     if config["discord"]["sendon"]:
         global discord_log
-        disord_log = StringIO()
-        discord_logger = logging.StreamHandler(disord_log)
+        discord_log = StringIO()
+        discord_logger = logging.StreamHandler(discord_log)
         discord_logger.setFormatter(log_format)
         if config["discord"]["short"]:
             # Don't send programm stdout in discord message
