@@ -40,6 +40,18 @@ def tee_log(infile, out_lines, log_level):
 
 # Function to send Discord notification
 def send_discord_notification(success, log):
+    maxlength = 3900
+    removed_lines = 0
+    if len(log) > maxlength:
+        # Keep only the first half of maxlength characters and the last half
+        removed_lines = log.count("\n", maxlength // 2, -maxlength // 2)
+        log = (
+            "NOTE: Log was too big for Discord and was shortened\n\n" +
+            log[:maxlength // 2] +
+            "[...]\n\n\n --- LOG WAS TOO BIG - {} LINES REMOVED --\n\n\n[...]".format(
+                removed_lines) +
+            log[-maxlength // 2:])
+
     payload = {
         "content": "SnapRAID job completed successfully." if success else "Error during SnapRAID job:",
         "embeds": [
@@ -276,7 +288,7 @@ def setup_logger():
         discord_logger = logging.StreamHandler(discord_log)
         discord_logger.setFormatter(log_format)
         if config["discord"]["short"]:
-            # Don't send programm stdout in discord message
+            # Don't send program stdout in discord message
             discord_logger.setLevel(logging.INFO)
         root_logger.addHandler(discord_logger)
 
