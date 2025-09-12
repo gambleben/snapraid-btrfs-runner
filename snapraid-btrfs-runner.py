@@ -290,6 +290,7 @@ def setup_logger():
         root_logger.addHandler(email_logger)
 
     if config["discord"]["sendon"]:
+        global discord_log
         discord_log = StringIO()
         discord_logger = logging.StreamHandler(discord_log)
         discord_logger.setFormatter(log_format)
