@@ -38,13 +38,6 @@ def tee_log(infile, out_lines, log_level):
     t.start()
     return t
 
-class LogFilter(object):
-    def __init__(self, level):
-        self.__level = level
-
-    def filter(self, logRecord):
-        return logRecord.levelno == self.__level
-
 # Function to send Discord notification
 def send_discord_notification(success, log):
     maxlength = 3900
@@ -296,7 +289,6 @@ def setup_logger():
         discord_logger = logging.StreamHandler(discord_log)
         discord_logger.setFormatter(log_format)
         discord_logger.setLevel(logging.OUTPUT)
-        discord_logger.addFilter(LogFilter(logging.OUTPUT))
         root_logger.addHandler(discord_logger)
 
 
