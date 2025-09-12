@@ -53,11 +53,12 @@ def send_discord_notification(success, log):
         # Keep only the first half of maxlength characters and the last half
         removed_lines = log.count("\n", maxlength // 2, -maxlength // 2)
         log = (
-            "NOTE: Log was too big for Discord and was shortened\n\n" +
+            "NOTE: Log was too big for Discord and was shortened\n\n`" +
             log[:maxlength // 2] +
-            "[...]\n\n\n --- LOG WAS TOO BIG - {} LINES REMOVED --\n\n\n[...]".format(
+            "[...]`\n\n\n --- LOG WAS TOO BIG - {} LINES REMOVED --\n\n\n[...]`".format(
                 removed_lines) +
-            log[-maxlength // 2:])
+            log[-maxlength // 2:] +
+            "`")
 
     payload = {
         "content": "SnapRAID job completed successfully." if success else "Error during SnapRAID job:",
