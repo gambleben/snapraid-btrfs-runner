@@ -18,6 +18,7 @@ import json
 # Global variables
 config = None
 email_log = None
+discord_log = None
 
 # Discord webhook URL
 discord_webhook_url = None
@@ -37,6 +38,12 @@ def tee_log(infile, out_lines, log_level):
     t.start()
     return t
 
+class LogFilter(object):
+    def __init__(self, level):
+        self.__level = level
+
+    def filter(self, logRecord):
+        return logRecord.levelno == self.__level
 
 # Function to send Discord notification
 def send_discord_notification(success, log):
@@ -283,13 +290,11 @@ def setup_logger():
         root_logger.addHandler(email_logger)
 
     if config["discord"]["sendon"]:
-        global discord_log
         discord_log = StringIO()
         discord_logger = logging.StreamHandler(discord_log)
         discord_logger.setFormatter(log_format)
-        if config["discord"]["short"]:
-            # Don't send program stdout in discord message
-            discord_logger.setLevel(logging.INFO)
+        discord_logger.setLevel(logging.OUTPUT)
+        discord_logger.addFilter(LogFilter(logging.OUTPUT))
         root_logger.addHandler(discord_logger)
 
 
