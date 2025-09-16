@@ -14,11 +14,13 @@ from collections import Counter, defaultdict
 from io import StringIO
 import requests
 import json
+from datetime import datetime, timedelta
 
 # Global variables
 config = None
 email_log = None
 discord_log = None
+run_summary = None
 
 # Discord webhook URL
 discord_webhook_url = None
@@ -40,24 +42,21 @@ def tee_log(infile, out_lines, log_level):
 
 # Function to send Discord notification
 def send_discord_notification(success, log):
-    maxlength = 3900
-    removed_lines = 0
-    if len(log) > maxlength:
-        # Keep only the first half of maxlength characters and the last half
-        removed_lines = log.count("\n", maxlength // 2, -maxlength // 2)
+    # Split log into lines and get last 25
+    log_lines = log.splitlines()
+    if len(log_lines) > 25:
+        removed_lines = len(log_lines) - 25
+        log_lines = log_lines[-25:]
         log = (
-            "NOTE: Log was too big for Discord and was shortened\n\n`" +
-            log[:maxlength // 2] +
-            "[...]`\n\n\n --- LOG WAS TOO BIG - {} LINES REMOVED --\n\n\n[...]`".format(
-                removed_lines) +
-            log[-maxlength // 2:] +
-            "`")
+            f"NOTE: Log was too big for Discord - showing last 25 lines ({removed_lines} lines removed)\n\n"
+            + '\n'.join(log_lines)
+        )
 
     payload = {
         "content": "SnapRAID job completed successfully." if success else "Error during SnapRAID job:",
         "embeds": [
             {
-                "title": "Log",
+                "title": "Log", 
                 "description": log,
                 "color": 65280 if success else 16711680
             }
@@ -173,6 +172,7 @@ def send_email(success):
 
 
 def finish(is_success):
+    logging.info(run_summary.get_summary(is_success))
     if ("error", "success")[is_success] in config["email"]["sendon"]:
         try:
             send_email(is_success)
@@ -288,8 +288,34 @@ def setup_logger():
         discord_log = StringIO()
         discord_logger = logging.StreamHandler(discord_log)
         discord_logger.setFormatter(log_format)
-        discord_logger.setLevel(logging.OUTPUT)
+        discord_logger.setLevel(logging.INFO)
         root_logger.addHandler(discord_logger)
+
+
+class RunSummary:
+    def __init__(self):
+        self.start_time = datetime.now()
+        self.operations = []
+        
+    def add_operation(self, name, success, duration):
+        self.operations.append({
+            'name': name,
+            'success': success,
+            'duration': duration
+        })
+
+    def get_summary(self, is_success):
+        total_duration = datetime.now() - self.start_time
+        summary = "\nRun Summary: " + ("Success" if is_success else "Failure") + "\n" + "=" * 60 + "\n"
+
+        for op in self.operations:
+            status = "✓" if op['success'] else "✗"
+            duration = str(timedelta(seconds=int(op['duration'])))
+            summary += f"{status} {op['name']:<20} {duration}\n"
+            
+        summary += "=" * 60 + "\n"
+        summary += f"Total elapsed time: {str(timedelta(seconds=int(total_duration.total_seconds())))}\n"
+        return summary
 
 
 def main():
@@ -373,11 +399,17 @@ def run():
 
     if config["snapraid"]["touch"]:
         logging.info("Running touch...")
+        start_time = time.time()
         snapraid_btrfs_command("touch", snapraid_btrfs_args = snapraid_btrfs_args_extend)
+        duration = time.time() - start_time
+        run_summary.add_operation("Touch", True, duration)
         logging.info("*" * 60)
 
     logging.info("Running diff...")
+    start_time = time.time()
     diff_out = snapraid_btrfs_command("diff", snapraid_btrfs_args = snapraid_btrfs_args_extend, allow_statuscodes=[2])
+    duration = time.time() - start_time
+    run_summary.add_operation("Diff", True, duration)
     logging.info("*" * 60)
 
     diff_results = Counter(line.split(" ")[0] for line in diff_out)
@@ -399,8 +431,11 @@ def run():
         logging.info("No changes detected, no sync required")
     else:
         logging.info("Running sync...")
+        start_time = time.time()
         try:
             snapraid_btrfs_command("sync", snapraid_btrfs_args = snapraid_btrfs_args_extend)
+            duration = time.time() - start_time
+            run_summary.add_operation("Sync", True, duration)
         except subprocess.CalledProcessError as e:
             logging.error(e)
             finish(False)
@@ -411,8 +446,11 @@ def run():
         logging.info("Running pool...")
         if len(config["snapraid-btrfs"]["pool-dir"]) > 0:
             snapraid_btrfs_args_extend["pool-dir"] = config["snapraid-btrfs"]["pool-dir"]
+        start_time = time.time()
         try:
             snapraid_btrfs_command("pool", snapraid_btrfs_args = snapraid_btrfs_args_extend)
+            duration = time.time() - start_time
+            run_summary.add_operation("Pool", True, duration)
         except subprocess.CalledProcessError as e:
             logging.error(e)
             finish(False)
@@ -421,8 +459,11 @@ def run():
     # cleanup
     if config["snapraid-btrfs"]["cleanup"]:
         logging.info("Running cleanup...")
+        start_time = time.time()
         try:
             snapraid_btrfs_command("cleanup", snapraid_btrfs_args = snapraid_btrfs_args_extend)
+            duration = time.time() - start_time
+            run_summary.add_operation("Cleanup", True, duration)
         except subprocess.CalledProcessError as e:
             logging.error(e)
             finish(False)
@@ -446,8 +487,11 @@ def run():
                 "plan": config["scrub"]["plan"],
                 "older-than": config["scrub"]["older-than"],
             }
+        start_time = time.time()
         try:
             snapraid_btrfs_command("scrub", snapraid_args = snapraid_args_extend, snapraid_btrfs_args = snapraid_btrfs_args_extend)
+            duration = time.time() - start_time
+            run_summary.add_operation("Scrub", True, duration)
         except subprocess.CalledProcessError as e:
             logging.error(e)
             finish(False)
