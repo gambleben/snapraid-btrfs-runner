@@ -367,6 +367,9 @@ def main():
 
 
 def run():
+    global run_summary
+    run_summary = RunSummary()  # Initialize the RunSummary object
+
     logging.info("=" * 60)
     logging.info("Run started")
     logging.info("=" * 60)
